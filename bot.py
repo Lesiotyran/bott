@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 
 # Konfiguracja bota
-TOKEN = 'MTI4MjM2MDA5MTA1MTI5NDg2Mg.G8DUCf.eJPhho9txikWbzJSkH6NHbfxRfzcb3RjCdtQMQ'
+TOKEN = 'MTI4MjM2MDA5MTA1MTI5NDg2Mg.GnMtWM.XhDA1xA6m5W2n43BfEPbEafiYcTHhGmjSFg-TI'
 PREFIX = '/'
 ROLE_ID = 1276516323387506729  # ID roli uprawnionej do komend
 
