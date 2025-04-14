@@ -3,3 +3,4 @@ requests
 beautifulsoup4
 pysqlite3
 python-dotenv
+aiohttp
