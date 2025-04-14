@@ -4,16 +4,12 @@ import datetime
 import requests
 from bs4 import BeautifulSoup
 import sqlite3
-
-# Konfiguracja bota
-TOKEN = 'MTI4MjM2MDA5MTA1MTI5NDg2Mg.GnMtWM.XhDA1xA6m5W2n43BfEPbEafiYcTHhGmjSFg-TI'
-PREFIX = '/'
-ROLE_ID = 1276516323387506729  # ID roli uprawnionej do komend
+import config
 
 # Inicjalizacja bota
 intents = discord.Intents.default()
-intents.message_content = True  # Włącz odczytywanie treści wiadomości
-bot = commands.Bot(command_prefix=PREFIX, intents=intents)
+intents.message_content = True
+bot = commands.Bot(command_prefix='/', intents=intents)
 
 # Połączenie z bazą danych SQLite
 conn = sqlite3.connect('msze.db')
@@ -40,7 +36,8 @@ def pobierz_dane_niezbednik(data):
 @bot.command()
 async def msza_dodaj(ctx, data: str, godzina: str, tytul: str, celebrans: str, linki: str = None):
     """Dodaje mszę do bazy danych."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (data, godzina, tytul, celebrans, linki))
         conn.commit()
         await ctx.send(f"Msza dodana: {data}, {godzina}, {tytul}, {celebrans}, {linki}")
@@ -50,7 +47,8 @@ async def msza_dodaj(ctx, data: str, godzina: str, tytul: str, celebrans: str, l
 @bot.command()
 async def msza_usun(ctx, data: str):
     """Usuwa mszę z bazy danych."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         c.execute("DELETE FROM msze WHERE data=?", (data,))
         conn.commit()
         await ctx.send(f"Msza usunięta: {data}")
@@ -60,7 +58,8 @@ async def msza_usun(ctx, data: str):
 @bot.command()
 async def msza_nadzis(ctx):
     """Wyświetla msze na dany dzień."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
         tytul_dnia, url_niezbednik = pobierz_dane_niezbednik(dzisiejsza_data)
         if tytul_dnia:
@@ -81,7 +80,8 @@ async def msza_nadzis(ctx):
 @bot.command()
 async def msza_zaplanuj(ctx, data: str, godzina: str, tytul: str, celebrans: str, linki: str = None):
     """Planuje msze na przyszłe dni."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (data, godzina, tytul, celebrans, linki))
         conn.commit()
         await ctx.send(f"Msza zaplanowana: {data}, {godzina}, {tytul}, {celebrans}, {linki}")
@@ -91,7 +91,8 @@ async def msza_zaplanuj(ctx, data: str, godzina: str, tytul: str, celebrans: str
 @bot.command()
 async def msza_wyswietl(ctx, data: str):
     """Wyświetla szczegóły mszy."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         c.execute("SELECT * FROM msze WHERE data=?", (data,))
         msza = c.fetchone()
         if msza:
@@ -113,7 +114,8 @@ async def ticket(ctx, temat: str, opis: str):
 @bot.command()
 async def ticket_zamknij(ctx, ticket_id: int):
     """Zamyka ticket."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         kanal_ticket = bot.get_channel(ticket_id)
         if kanal_ticket:
             await kanal_ticket.delete()
@@ -126,7 +128,8 @@ async def ticket_zamknij(ctx, ticket_id: int):
 @bot.command()
 async def wyslij_serwer(ctx, kanal: discord.TextChannel, *, wiadomosc: str):
     """Wysyła wiadomość na serwerze."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         await kanal.send(wiadomosc)
         await ctx.send("Wiadomość wysłana.")
     else:
@@ -135,7 +138,8 @@ async def wyslij_serwer(ctx, kanal: discord.TextChannel, *, wiadomosc: str):
 @bot.command()
 async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
     """Wysyła prywatną wiadomość do użytkownika."""
-    if ctx.author.get_role(ROLE_ID):
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
         try:
             await uzytkownik.send(wiadomosc)
             await ctx.send("Wiadomość prywatna wysłana.")
@@ -145,4 +149,4 @@ async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
 # Uruchomienie bota
-bot.run(TOKEN)
+bot.run(config.TOKEN)
