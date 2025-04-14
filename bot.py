@@ -1,8 +1,6 @@
 import discord
 from discord.ext import commands
 import datetime
-import requests
-from bs4 import BeautifulSoup
 import sqlite3
 import config
 from aiohttp import web
@@ -21,26 +19,6 @@ c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS msze
              (data TEXT, godzina TEXT, tytul TEXT, celebrans TEXT, linki TEXT)''')
 conn.commit()
-
-# Funkcja do pobierania danych z Niezbędnika Katolickiego
-def pobierz_dane_niezbednik(data):
-    url = f"https://niezbednik.niedziela.pl/liturgia/{data}"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Sprawdź, czy żądanie zakończyło się powodzeniem
-        soup = BeautifulSoup(response.content, 'html.parser')
-        tytul_element = soup.find('h1', class_='liturgia-title')
-        if tytul_element:
-            tytul_dnia = tytul_element.text.strip()
-            return tytul_dnia, url
-        else:
-            return None, None
-    except requests.exceptions.RequestException as e:
-        print(f"Błąd pobierania danych z Niezbędnika: {e}")
-        return None, None
-    except Exception as e:
-        print(f"Nieoczekiwany błąd: {e}")
-        return None, None
 
 # Komendy bota
 
@@ -67,26 +45,22 @@ async def msza_usun(ctx, data: str):
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
 @bot.command()
-async def msza_nadzis(ctx, link_msza: str = None):
+async def msza_nadzis(ctx, link_niezbednik: str = None):
     """Wyświetla msze na dany dzień."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
         dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
-        tytul_dnia, url_niezbednik = pobierz_dane_niezbednik(dzisiejsza_data)
-        if tytul_dnia or link_msza:
-            embed = discord.Embed(title=tytul_dnia, url=url_niezbednik)
-            if link_msza:
-                embed.add_field(name="Link do mszy", value=link_msza, inline=False)
-            c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
-            msze = c.fetchall()
-            if msze:
-                for msza in msze:
-                    embed.add_field(name=msza[1], value=f"{msza[2]}, {msza[3]}, {msza[4]}", inline=False)
-            else:
-                embed.add_field(name="Brak mszy", value="Nie ma zaplanowanych mszy na dzisiaj.")
-            await ctx.send(embed=embed)
+        embed = discord.Embed(title=f"Msza na {dzisiejsza_data}")
+        if link_niezbednik:
+            embed.url = link_niezbednik
+        c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
+        msze = c.fetchall()
+        if msze:
+            for msza in msze:
+                embed.add_field(name=msza[1], value=f"{msza[2]}, {msza[3]}, {msza[4]}", inline=False)
         else:
-            await ctx.send("Nie udało się pobrać danych z Niezbędnika Katolickiego lub brak danych na dzisiejszy dzień.")
+            embed.add_field(name="Brak mszy", value="Nie ma zaplanowanych mszy na dzisiaj.")
+        await ctx.send(embed=embed)
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -142,6 +116,9 @@ async def ping(request):
     return web.Response(text="Ping!")
 
 async def start_web_server():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
+
     app = web.Application()
     app.add_routes([web.get('/', handle), web.get('/ping', ping)])
     runner = web.AppRunner(app)
