@@ -1,3 +1,4 @@
+
 import discord
 from discord.ext import commands, tasks
 import datetime
@@ -177,7 +178,7 @@ async def wyslij_ogloszenie():
     """Wysyła ogłoszenie na określony kanał."""
     global ogloszenie_wiadomosc, ogloszenie_data, ogloszenie_tresc
     if ogloszenie_data and ogloszenie_tresc:
-        kanal = bot.get_channel(config.OGLOSZENIE_KANAL_ID)
+        kanal = bot.get_channel(1276516324268310553) # ID kanału umieszczone tutaj
         if kanal:
             dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
             if ogloszenie_data == dzisiejsza_data:
