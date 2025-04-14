@@ -178,39 +178,43 @@ async def wyslij_ogloszenie():
     """Wysyła ogłoszenie na określony kanał."""
     global ogloszenie_wiadomosc, ogloszenie_data, ogloszenie_tresc
     if ogloszenie_data and ogloszenie_tresc:
-        kanal = bot.get_channel(1276516324268310553) # ID kanału umieszczone tutaj
-        if kanal:
-            dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
-            if ogloszenie_data == dzisiejsza_data:
-                try:
-                    c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
-                    msze = c.fetchall()
-                    msze_tekst = ""
-                    if msze:
-                        for msza in msze:
-                            msze_tekst += f"• {msza[1]} {msza[3]} {msza[4]}\n"
+        serwer = bot.get_guild(1276516323299692566)
+        if serwer:
+            kanal = serwer.get_channel(1276516324268310553)
+            if kanal:
+                dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
+                if ogloszenie_data == dzisiejsza_data:
+                    try:
+                        c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
+                        msze = c.fetchall()
+                        msze_tekst = ""
+                        if msze:
+                            for msza in msze:
+                                msze_tekst += f"• {msza[1]} {msza[3]} {msza[4]}\n"
 
-                    c.execute("SELECT * FROM nabozenstwa WHERE data=?", (dzisiejsza_data,))
-                    nabozenstwa = c.fetchall()
-                    nabozenstwa_tekst = ""
-                    if nabozenstwa:
-                        for nabozenstwo in nabozenstwa:
-                            nabozenstwa_tekst += f"• {nabozenstwo[1]} {nabozenstwo[3]} {nabozenstwo[4]}\n"
+                        c.execute("SELECT * FROM nabozenstwa WHERE data=?", (dzisiejsza_data,))
+                        nabozenstwa = c.fetchall()
+                        nabozenstwa_tekst = ""
+                        if nabozenstwa:
+                            for nabozenstwo in nabozenstwa:
+                                nabozenstwa_tekst += f"• {nabozenstwo[1]} {nabozenstwo[3]} {nabozenstwo[4]}\n"
 
-                    tresc = ogloszenie_tresc.replace("[MSZE]", msze_tekst).replace("[NABOZENSTWA]", nabozenstwa_tekst)
+                        tresc = ogloszenie_tresc.replace("[MSZE]", msze_tekst).replace("[NABOZENSTWA]", nabozenstwa_tekst)
 
-                    if ogloszenie_wiadomosc:
-                        await ogloszenie_wiadomosc.edit(content=tresc)
-                    else:
-                        ogloszenie_wiadomosc = await kanal.send(tresc)
-                except discord.Forbidden:
-                    print("Nie mam uprawnień do wysyłania wiadomości na ten kanał.")
-                except Exception as e:
-                    print(f"Wystąpił błąd podczas wysyłania ogłoszenia: {e}")
+                        if ogloszenie_wiadomosc:
+                            await ogloszenie_wiadomosc.edit(content=tresc)
+                        else:
+                            ogloszenie_wiadomosc = await kanal.send(tresc)
+                    except discord.Forbidden:
+                        print("Nie mam uprawnień do wysyłania wiadomości na ten kanał.")
+                    except Exception as e:
+                        print(f"Wystąpił błąd podczas wysyłania ogłoszenia: {e}")
+                else:
+                    print("Ogłoszenie jest ustawione na inny dzień.")
             else:
-                print("Ogłoszenie jest ustawione na inny dzień.")
+                print("Nie znaleziono kanału o podanym ID.")
         else:
-            print("Nie znaleziono kanału o podanym ID.")
+            print("Nie znaleziono serwera o podanym ID.")
 
 @tasks.loop(minutes=60)
 async def wysylaj_ogloszenie_co_godzine():
