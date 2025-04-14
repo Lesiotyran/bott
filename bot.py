@@ -9,7 +9,7 @@ import config
 # Inicjalizacja bota
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix='/', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Połączenie z bazą danych SQLite
 conn = sqlite3.connect('msze.db')
