@@ -5,6 +5,8 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 import config
+from aiohttp import web
+import os
 
 # Inicjalizacja bota
 intents = discord.Intents.default()
@@ -22,9 +24,10 @@ conn.commit()
 
 # Funkcja do pobierania danych z Niezbędnika Katolickiego
 def pobierz_dane_niezbednik(data):
-    url = f"https://niezbednik.niedziela.pl/liturgia/{data}" # Data w formacie RRRR-MM-DD
-    response = requests.get(url)
-    if response.status_code == 200:
+    url = f"https://niezbednik.niedziela.pl/liturgia/{data}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Sprawdź, czy żądanie zakończyło się powodzeniem
         soup = BeautifulSoup(response.content, 'html.parser')
         tytul_element = soup.find('h1', class_='liturgia-title')
         if tytul_element:
@@ -32,7 +35,11 @@ def pobierz_dane_niezbednik(data):
             return tytul_dnia, url
         else:
             return None, None
-    else:
+    except requests.exceptions.RequestException as e:
+        print(f"Błąd pobierania danych z Niezbędnika: {e}")
+        return None, None
+    except Exception as e:
+        print(f"Nieoczekiwany błąd: {e}")
         return None, None
 
 # Komendy bota
@@ -64,7 +71,7 @@ async def msza_nadzis(ctx):
     """Wyświetla msze na dany dzień."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d') # Data w formacie RRRR-MM-DD
+        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
         tytul_dnia, url_niezbednik = pobierz_dane_niezbednik(dzisiejsza_data)
         if tytul_dnia:
             embed = discord.Embed(title=tytul_dnia, url=url_niezbednik)
@@ -151,6 +158,22 @@ async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
             await ctx.send("Nie można wysłać wiadomości do tego użytkownika.")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
+
+async def start_web_server():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
+
+    app = web.Application()
+    app.add_routes([web.get('/', handle)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', config.PORT)
+    await site.start()
+
+@bot.event
+async def on_ready():
+    print(f'Zalogowano jako {bot.user.name}')
+    await start_web_server()
 
 # Uruchomienie bota
 bot.run(config.TOKEN)
