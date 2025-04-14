@@ -5,8 +5,6 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 import config
-import os
-from aiohttp import web
 
 # Inicjalizacja bota
 intents = discord.Intents.default()
@@ -24,12 +22,16 @@ conn.commit()
 
 # Funkcja do pobierania danych z Niezbędnika Katolickiego
 def pobierz_dane_niezbednik(data):
-    url = f"https://niezbednik.niedziela.pl/liturgia/{data}"
+    url = f"https://niezbednik.niedziela.pl/liturgia/{data}" # Data w formacie RRRR-MM-DD
     response = requests.get(url)
     if response.status_code == 200:
         soup = BeautifulSoup(response.content, 'html.parser')
-        tytul_dnia = soup.find('h1', class_='liturgia-title').text.strip()
-        return tytul_dnia, url
+        tytul_element = soup.find('h1', class_='liturgia-title')
+        if tytul_element:
+            tytul_dnia = tytul_element.text.strip()
+            return tytul_dnia, url
+        else:
+            return None, None
     else:
         return None, None
 
@@ -62,7 +64,7 @@ async def msza_nadzis(ctx):
     """Wyświetla msze na dany dzień."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
+        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d') # Data w formacie RRRR-MM-DD
         tytul_dnia, url_niezbednik = pobierz_dane_niezbednik(dzisiejsza_data)
         if tytul_dnia:
             embed = discord.Embed(title=tytul_dnia, url=url_niezbednik)
@@ -75,7 +77,7 @@ async def msza_nadzis(ctx):
                 embed.add_field(name="Brak mszy", value="Nie ma zaplanowanych mszy na dzisiaj.")
             await ctx.send(embed=embed)
         else:
-            await ctx.send("Nie udało się pobrać danych z Niezbędnika Katolickiego.")
+            await ctx.send("Nie udało się pobrać danych z Niezbędnika Katolickiego lub brak danych na dzisiejszy dzień.")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -149,22 +151,6 @@ async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
             await ctx.send("Nie można wysłać wiadomości do tego użytkownika.")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
-
-async def start_web_server():
-    async def handle(request):
-        return web.Response(text="Bot is running!")
-
-    app = web.Application()
-    app.add_routes([web.get('/', handle)])
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', config.PORT) # Użyj portu z config.py
-    await site.start()
-
-@bot.event
-async def on_ready():
-    print(f'Zalogowano jako {bot.user.name}')
-    await start_web_server() # Uruchom serwer webowy po zalogowaniu
 
 # Uruchomienie bota
 bot.run(config.TOKEN)
