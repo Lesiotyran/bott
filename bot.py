@@ -23,27 +23,33 @@ conn.commit()
 # Komendy bota
 
 @bot.command()
-async def msza_dzis(ctx, godzina: str, tytul: str, celebrans: str, linki: str = None, link_niezbednik: str = None):
+async def msza_dzis(ctx, godzina: str = None, tytul: str = None, celebrans: str = None, linki: str = None, link_niezbednik: str = None):
     """Dodaje lub wyświetla mszę na dzisiejszy dzień."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
         dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
         if godzina and tytul and celebrans:
-            c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (dzisiejsza_data, godzina, tytul, celebrans, linki))
-            conn.commit()
-            await ctx.send(f"Msza dodana: {dzisiejsza_data}, {godzina}, {tytul}, {celebrans}, {linki}")
+            try:
+                c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (dzisiejsza_data, godzina, tytul, celebrans, linki))
+                conn.commit()
+                await ctx.send(f"Msza dodana: {dzisiejsza_data}, {godzina}, {tytul}, {celebrans}, {linki}")
+            except sqlite3.Error as e:
+                await ctx.send(f"Wystąpił błąd podczas dodawania mszy: {e}")
         else:
-            embed = discord.Embed(title=f"Msza na {dzisiejsza_data}")
-            if link_niezbednik:
-                embed.url = link_niezbednik
-            c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
-            msze = c.fetchall()
-            if msze:
-                for msza in msze:
-                    embed.add_field(name=msza[1], value=f"{msza[2]}, {msza[3]}, {msza[4]}", inline=False)
-            else:
-                embed.add_field(name="Brak mszy", value="Nie ma zaplanowanych mszy na dzisiaj.")
-            await ctx.send(embed=embed)
+            try:
+                c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
+                msze = c.fetchall()
+                if msze:
+                    embed = discord.Embed(title=f"Msza na {dzisiejsza_data}")
+                    if link_niezbednik:
+                        embed.url = link_niezbednik
+                    for msza in msze:
+                        embed.add_field(name=msza[1], value=f"{msza[2]}, {msza[3]}, {msza[4]}", inline=False)
+                    await ctx.send(embed=embed)
+                else:
+                    await ctx.send("Nie ma zaplanowanych mszy na dzisiaj.")
+            except sqlite3.Error as e:
+                await ctx.send(f"Wystąpił błąd podczas wyświetlania mszy: {e}")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -52,9 +58,12 @@ async def msza_usun(ctx, data: str):
     """Usuwa mszę z bazy danych."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        c.execute("DELETE FROM msze WHERE data=?", (data,))
-        conn.commit()
-        await ctx.send(f"Msza usunięta: {data}")
+        try:
+            c.execute("DELETE FROM msze WHERE data=?", (data,))
+            conn.commit()
+            await ctx.send(f"Msza usunięta: {data}")
+        except sqlite3.Error as e:
+            await ctx.send(f"Wystąpił błąd podczas usuwania mszy: {e}")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -63,9 +72,12 @@ async def msza_zaplanuj(ctx, data: str, godzina: str, tytul: str, celebrans: str
     """Planuje msze na przyszłe dni."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (data, godzina, tytul, celebrans, linki))
-        conn.commit()
-        await ctx.send(f"Msza zaplanowana: {data}, {godzina}, {tytul}, {celebrans}, {linki}")
+        try:
+            c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (data, godzina, tytul, celebrans, linki))
+            conn.commit()
+            await ctx.send(f"Msza zaplanowana: {data}, {godzina}, {tytul}, {celebrans}, {linki}")
+        except sqlite3.Error as e:
+            await ctx.send(f"Wystąpił błąd podczas planowania mszy: {e}")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -74,12 +86,15 @@ async def msza_wyswietl(ctx, data: str):
     """Wyświetla szczegóły mszy."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        c.execute("SELECT * FROM msze WHERE data=?", (data,))
-        msza = c.fetchone()
-        if msza:
-            await ctx.send(f"Data: {msza[0]}, Godzina: {msza[1]}, Tytuł: {msza[2]}, Celebrans: {msza[3]}, Linki: {msza[4]}")
-        else:
-            await ctx.send("Nie znaleziono mszy o podanej dacie.")
+        try:
+            c.execute("SELECT * FROM msze WHERE data=?", (data,))
+            msza = c.fetchone()
+            if msza:
+                await ctx.send(f"Data: {msza[0]}, Godzina: {msza[1]}, Tytuł: {msza[2]}, Celebrans: {msza[3]}, Linki: {msza[4]}")
+            else:
+                await ctx.send("Nie znaleziono mszy o podanej dacie.")
+        except sqlite3.Error as e:
+            await ctx.send(f"Wystąpił błąd podczas wyświetlania mszy: {e}")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -88,8 +103,11 @@ async def wyslij_serwer(ctx, kanal: discord.TextChannel, *, wiadomosc: str):
     """Wysyła wiadomość na serwerze."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        await kanal.send(wiadomosc)
-        await ctx.send("Wiadomość wysłana.")
+        try:
+            await kanal.send(wiadomosc)
+            await ctx.send("Wiadomość wysłana.")
+        except discord.Forbidden:
+            await ctx.send("Nie można wysłać wiadomości na ten kanał.")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
