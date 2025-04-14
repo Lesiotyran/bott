@@ -23,13 +23,27 @@ conn.commit()
 # Komendy bota
 
 @bot.command()
-async def msza_dodaj(ctx, data: str, godzina: str, tytul: str, celebrans: str, linki: str = None):
-    """Dodaje mszę do bazy danych."""
+async def msza_dzis(ctx, godzina: str, tytul: str, celebrans: str, linki: str = None, link_niezbednik: str = None):
+    """Dodaje lub wyświetla mszę na dzisiejszy dzień."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
-        c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (data, godzina, tytul, celebrans, linki))
-        conn.commit()
-        await ctx.send(f"Msza dodana: {data}, {godzina}, {tytul}, {celebrans}, {linki}")
+        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
+        if godzina and tytul and celebrans:
+            c.execute("INSERT INTO msze VALUES (?, ?, ?, ?, ?)", (dzisiejsza_data, godzina, tytul, celebrans, linki))
+            conn.commit()
+            await ctx.send(f"Msza dodana: {dzisiejsza_data}, {godzina}, {tytul}, {celebrans}, {linki}")
+        else:
+            embed = discord.Embed(title=f"Msza na {dzisiejsza_data}")
+            if link_niezbednik:
+                embed.url = link_niezbednik
+            c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
+            msze = c.fetchall()
+            if msze:
+                for msza in msze:
+                    embed.add_field(name=msza[1], value=f"{msza[2]}, {msza[3]}, {msza[4]}", inline=False)
+            else:
+                embed.add_field(name="Brak mszy", value="Nie ma zaplanowanych mszy na dzisiaj.")
+            await ctx.send(embed=embed)
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -41,26 +55,6 @@ async def msza_usun(ctx, data: str):
         c.execute("DELETE FROM msze WHERE data=?", (data,))
         conn.commit()
         await ctx.send(f"Msza usunięta: {data}")
-    else:
-        await ctx.send("Nie masz uprawnień do tej komendy.")
-
-@bot.command()
-async def msza_nadzis(ctx, link_niezbednik: str = None):
-    """Wyświetla msze na dany dzień."""
-    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
-    if role in ctx.author.roles:
-        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
-        embed = discord.Embed(title=f"Msza na {dzisiejsza_data}")
-        if link_niezbednik:
-            embed.url = link_niezbednik
-        c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
-        msze = c.fetchall()
-        if msze:
-            for msza in msze:
-                embed.add_field(name=msza[1], value=f"{msza[2]}, {msza[3]}, {msza[4]}", inline=False)
-        else:
-            embed.add_field(name="Brak mszy", value="Nie ma zaplanowanych mszy na dzisiaj.")
-        await ctx.send(embed=embed)
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
