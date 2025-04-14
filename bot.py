@@ -67,14 +67,16 @@ async def msza_usun(ctx, data: str):
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
 @bot.command()
-async def msza_nadzis(ctx):
+async def msza_nadzis(ctx, link_msza: str = None):
     """Wyświetla msze na dany dzień."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
     if role in ctx.author.roles:
         dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
         tytul_dnia, url_niezbednik = pobierz_dane_niezbednik(dzisiejsza_data)
-        if tytul_dnia:
+        if tytul_dnia or link_msza:
             embed = discord.Embed(title=tytul_dnia, url=url_niezbednik)
+            if link_msza:
+                embed.add_field(name="Link do mszy", value=link_msza, inline=False)
             c.execute("SELECT * FROM msze WHERE data=?", (dzisiejsza_data,))
             msze = c.fetchall()
             if msze:
@@ -114,29 +116,6 @@ async def msza_wyswietl(ctx, data: str):
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
 @bot.command()
-async def ticket(ctx, temat: str, opis: str):
-    """Tworzy nowy ticket."""
-    kanal_ticket = await ctx.guild.create_text_channel(f'ticket-{ctx.author.name}')
-    await kanal_ticket.set_permissions(ctx.author, read_messages=True, send_messages=True)
-    await kanal_ticket.set_permissions(ctx.guild.default_role, read_messages=False)
-    await kanal_ticket.send(f"**Temat:** {temat}\n**Opis:** {opis}")
-    await ctx.send(f"Utworzono ticket: {kanal_ticket.mention}")
-
-@bot.command()
-async def ticket_zamknij(ctx, ticket_id: int):
-    """Zamyka ticket."""
-    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
-    if role in ctx.author.roles:
-        kanal_ticket = bot.get_channel(ticket_id)
-        if kanal_ticket:
-            await kanal_ticket.delete()
-            await ctx.send(f"Ticket {ticket_id} zamknięty.")
-        else:
-            await ctx.send("Nie znaleziono ticketu o podanym ID.")
-    else:
-        await ctx.send("Nie masz uprawnień do tej komendy.")
-
-@bot.command()
 async def wyslij_serwer(ctx, kanal: discord.TextChannel, *, wiadomosc: str):
     """Wysyła wiadomość na serwerze."""
     role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
@@ -159,12 +138,12 @@ async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
-async def start_web_server():
-    async def handle(request):
-        return web.Response(text="Bot is running!")
+async def ping(request):
+    return web.Response(text="Ping!")
 
+async def start_web_server():
     app = web.Application()
-    app.add_routes([web.get('/', handle)])
+    app.add_routes([web.get('/', handle), web.get('/ping', ping)])
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', config.PORT)
