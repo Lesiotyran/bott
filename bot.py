@@ -5,6 +5,8 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 import config
+import os
+from aiohttp import web
 
 # Inicjalizacja bota
 intents = discord.Intents.default()
@@ -147,6 +149,22 @@ async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
             await ctx.send("Nie można wysłać wiadomości do tego użytkownika.")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
+
+async def start_web_server():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
+
+    app = web.Application()
+    app.add_routes([web.get('/', handle)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', config.PORT) # Użyj portu z config.py
+    await site.start()
+
+@bot.event
+async def on_ready():
+    print(f'Zalogowano jako {bot.user.name}')
+    await start_web_server() # Uruchom serwer webowy po zalogowaniu
 
 # Uruchomienie bota
 bot.run(config.TOKEN)
