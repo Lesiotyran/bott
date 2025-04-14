@@ -173,15 +173,16 @@ async def ogloszenie(ctx, data: str, *, tresc: str):
     ogloszenie_data = data
     ogloszenie_tresc = tresc
     await ctx.send("Ogłoszenie ustawione.")
+    await wyslij_ogloszenie(ctx) # Wysyła ogłoszenie natychmiast po użyciu komendy
 
-async def wyslij_ogloszenie():
+async def wyslij_ogloszenie(ctx=None):
     """Wysyła ogłoszenie na określony kanał."""
     global ogloszenie_wiadomosc, ogloszenie_data, ogloszenie_tresc
     if ogloszenie_data and ogloszenie_tresc:
         serwer = bot.get_guild(1276516323299692566)
         if serwer:
-            kanal = serwer.get_channel(1276516324268310553)
-            if kanal:
+            kanal_ogloszen = serwer.get_channel(1276516324268310553)
+            if kanal_ogloszen:
                 dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
                 if ogloszenie_data == dzisiejsza_data:
                     try:
@@ -202,9 +203,11 @@ async def wyslij_ogloszenie():
                         tresc = ogloszenie_tresc.replace("[MSZE]", msze_tekst).replace("[NABOZENSTWA]", nabozenstwa_tekst)
 
                         if ogloszenie_wiadomosc:
-                            await ogloszenie_wiadomosc.edit(content=tresc)
+                            await kanal_ogloszen.send(tresc)
                         else:
-                            ogloszenie_wiadomosc = await kanal.send(tresc)
+                            ogloszenie_wiadomosc = await kanal_ogloszen.send(tresc)
+                        if ctx:
+                            await ctx.send("Ogłoszenie wysłane na kanał ogłoszeń.")
                     except discord.Forbidden:
                         print("Nie mam uprawnień do wysyłania wiadomości na ten kanał.")
                     except Exception as e:
@@ -212,7 +215,7 @@ async def wyslij_ogloszenie():
                 else:
                     print("Ogłoszenie jest ustawione na inny dzień.")
             else:
-                print("Nie znaleziono kanału o podanym ID.")
+                print("Nie znaleziono kanału ogłoszeń o podanym ID.")
         else:
             print("Nie znaleziono serwera o podanym ID.")
 
