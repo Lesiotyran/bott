@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import datetime
 import sqlite3
 import config
@@ -19,6 +19,17 @@ c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS msze
              (data TEXT, godzina TEXT, tytul TEXT, celebrans TEXT, linki TEXT)''')
 conn.commit()
+
+# Tworzenie tabeli nabozenstwa (jeśli nie istnieje)
+c.execute('''CREATE TABLE IF NOT EXISTS nabozenstwa
+             (data TEXT, godzina TEXT, tytul TEXT, celebrans TEXT, linki TEXT)''')
+conn.commit()
+
+# Zmienne globalne
+ogloszenie_wiadomosc = None
+ogloszenie_data = None
+ogloszenie_tresc = None
+ogloszenie_link_niezbednik = None
 
 # Komendy bota
 
@@ -50,6 +61,37 @@ async def msza_dzis(ctx, godzina: str = None, tytul: str = None, celebrans: str 
                     await ctx.send("Nie ma zaplanowanych mszy na dzisiaj.")
             except sqlite3.Error as e:
                 await ctx.send(f"Wystąpił błąd podczas wyświetlania mszy: {e}")
+    else:
+        await ctx.send("Nie masz uprawnień do tej komendy.")
+
+@bot.command()
+async def nabozenstwo_dzis(ctx, godzina: str = None, tytul: str = None, celebrans: str = None, linki: str = None, link_niezbednik: str = None):
+    """Dodaje lub wyświetla nabożeństwo na dzisiejszy dzień."""
+    role = discord.utils.get(ctx.guild.roles, id=config.ROLE_ID)
+    if role in ctx.author.roles:
+        dzisiejsza_data = datetime.date.today().strftime('%Y-%m-%d')
+        if godzina and tytul and celebrans:
+            try:
+                c.execute("INSERT INTO nabozenstwa VALUES (?, ?, ?, ?, ?)", (dzisiejsza_data, godzina, tytul, celebrans, linki))
+                conn.commit()
+                await ctx.send(f"Nabożeństwo dodane: {dzisiejsza_data}, {godzina}, {tytul}, {celebrans}, {linki}")
+            except sqlite3.Error as e:
+                await ctx.send(f"Wystąpił błąd podczas dodawania nabożeństwa: {e}")
+        else:
+            try:
+                c.execute("SELECT * FROM nabozenstwa WHERE data=?", (dzisiejsza_data,))
+                nabozenstwa = c.fetchall()
+                if nabozenstwa:
+                    embed = discord.Embed(title=f"Nabożeństwo na {dzisiejsza_data}")
+                    if link_niezbednik:
+                        embed.url = link_niezbednik
+                    for nabozenstwo in nabozenstwa:
+                        embed.add_field(name=nabozenstwo[1], value=f"{nabozenstwo[2]}, {nabozenstwo[3]}, {nabozenstwo[4]}", inline=False)
+                    await ctx.send(embed=embed)
+                else:
+                    await ctx.send("Nie ma zaplanowanych nabożeństw na dzisiaj.")
+            except sqlite3.Error as e:
+                await ctx.send(f"Wystąpił błąd podczas wyświetlania nabożeństw: {e}")
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
@@ -124,24 +166,16 @@ async def wyslij_prywatna(ctx, uzytkownik: discord.Member, *, wiadomosc: str):
     else:
         await ctx.send("Nie masz uprawnień do tej komendy.")
 
-async def ping(request):
-    return web.Response(text="Ping!")
+@bot.command()
+async def ogloszenie(ctx, data: str, *, tresc: str):
+    """Ustawia ogłoszenie do wysłania."""
+    global ogloszenie_data, ogloszenie_tresc
+    ogloszenie_data = data
+    ogloszenie_tresc = tresc
+    await ctx.send("Ogłoszenie ustawione.")
 
-async def start_web_server():
-    async def handle(request):
-        return web.Response(text="Bot is running!")
-
-    app = web.Application()
-    app.add_routes([web.get('/', handle), web.get('/ping', ping)])
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', config.PORT)
-    await site.start()
-
-@bot.event
-async def on_ready():
-    print(f'Zalogowano jako {bot.user.name}')
-    await start_web_server()
-
-# Uruchomienie bota
-bot.run(config.TOKEN)
+async def wyslij_ogloszenie():
+    """Wysyła ogłoszenie na określony kanał."""
+    global ogloszenie_wiadomosc, ogloszenie_data, ogloszenie_tresc
+    if ogloszenie_data and ogloszenie_tresc:
+        kanal = bot.get_channel(config.OGLOSZENIE_KANAL_ID)
